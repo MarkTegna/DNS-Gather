@@ -56,3 +56,5 @@ Reports/
 # Keep Archive directory but ignore contents except .gitkeep
 Archive/*
 !Archive/.gitkeep
+
+/net-commander

@@ -118,7 +118,7 @@ class DNSGatherApp:
             print("\n[+] Transferring zone data...")
             self.logger.info("Starting zone transfers")
             
-            transfer = ZoneTransfer(dns_manager)  # Use transfer server
+            transfer = ZoneTransfer(dns_manager, logger=self.logger)  # Pass logger for validation
             records_by_zone = {}
             
             for i, zone in enumerate(zones, 1):
