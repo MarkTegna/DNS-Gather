@@ -5,6 +5,29 @@ All notable changes to DNS-Gather will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.1] - 2026-01-17
+
+### Added
+- **DNS Hostname Validation**: Validates that DNS record names match actual hostnames
+  - Checks CNAME records to ensure hostname part matches target hostname
+  - Logs warnings for mismatched records (e.g., "web" pointing to "app")
+  - Helps identify DNS configuration issues
+
+### Changed
+- ZoneTransfer class now accepts optional logger parameter for validation warnings
+- parse_zone_data() method now requires zone_name parameter for validation context
+
+### Technical Details
+- Added _validate_hostname_match() method to ZoneTransfer class
+- Validation applies to A, AAAA, and CNAME record types
+- Validation warnings are logged during zone transfer operations
+- Added 4 new unit tests for validation functionality
+
+### Testing
+- All 113 tests passing
+- 19 zone transfer tests including new validation tests
+- Comprehensive test coverage for hostname validation
+
 ## [0.1.0] - 2026-01-16
 
 ### Added
