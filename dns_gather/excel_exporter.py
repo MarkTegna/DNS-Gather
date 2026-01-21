@@ -51,8 +51,11 @@ class ExcelExporter:
         # Create zone list sheet
         self.create_zone_list_sheet(wb, zones)
         
-        # Create PTR records consolidation sheet
+        # Create consolidation sheets for specific record types
         self.create_ptr_records_sheet(wb, zones, records_by_zone)
+        self.create_cname_records_sheet(wb, zones, records_by_zone)
+        self.create_srv_records_sheet(wb, zones, records_by_zone)
+        self.create_aaaa_records_sheet(wb, zones, records_by_zone)
         
         # Create individual zone sheets
         for zone in zones:
@@ -151,6 +154,194 @@ class ExcelExporter:
                 ptr['fqdn'],
                 ptr['zone'],
                 ptr['ttl']
+            ])
+        
+        # Auto-adjust column widths
+        self.auto_adjust_columns(ws)
+    
+    def create_cname_records_sheet(self, wb: Workbook, zones: List[ZoneInfo], records_by_zone: dict) -> None:
+        """
+        Create consolidated CNAME records sheet
+        
+        Args:
+            wb: Workbook object
+            zones: List of ZoneInfo objects
+            records_by_zone: Dictionary mapping zone names to lists of DNSRecord objects
+        """
+        ws = wb.create_sheet('CNAME Records')
+        
+        # Headers
+        headers = ['Name', 'Target', 'Zone', 'TTL']
+        ws.append(headers)
+        
+        # Apply header formatting
+        self.apply_formatting(ws, len(headers))
+        
+        # Collect all CNAME records
+        cname_records = []
+        
+        for zone in zones:
+            records = records_by_zone.get(zone.name, [])
+            
+            for record in records:
+                if record.record_type == 'CNAME':
+                    # Build FQDN for the name
+                    if record.name == '@':
+                        fqdn = zone.name
+                    else:
+                        fqdn = f"{record.name}.{zone.name}"
+                    
+                    # Target is the CNAME data (remove trailing dot)
+                    target = record.data.rstrip('.')
+                    
+                    cname_records.append({
+                        'name': fqdn,
+                        'target': target,
+                        'zone': zone.name,
+                        'ttl': record.ttl
+                    })
+        
+        # Sort by name
+        cname_records.sort(key=lambda x: x['name'].lower())
+        
+        # Add CNAME record data
+        for cname in cname_records:
+            ws.append([
+                cname['name'],
+                cname['target'],
+                cname['zone'],
+                cname['ttl']
+            ])
+        
+        # Auto-adjust column widths
+        self.auto_adjust_columns(ws)
+    
+    def create_srv_records_sheet(self, wb: Workbook, zones: List[ZoneInfo], records_by_zone: dict) -> None:
+        """
+        Create consolidated SRV records sheet
+        
+        Args:
+            wb: Workbook object
+            zones: List of ZoneInfo objects
+            records_by_zone: Dictionary mapping zone names to lists of DNSRecord objects
+        """
+        ws = wb.create_sheet('SRV Records')
+        
+        # Headers
+        headers = ['Service', 'Priority', 'Weight', 'Port', 'Target', 'Zone', 'TTL']
+        ws.append(headers)
+        
+        # Apply header formatting
+        self.apply_formatting(ws, len(headers))
+        
+        # Collect all SRV records
+        srv_records = []
+        
+        for zone in zones:
+            records = records_by_zone.get(zone.name, [])
+            
+            for record in records:
+                if record.record_type == 'SRV':
+                    # Build FQDN for the service name
+                    if record.name == '@':
+                        service = zone.name
+                    else:
+                        service = f"{record.name}.{zone.name}"
+                    
+                    # Parse SRV data: "priority weight port target"
+                    # Example: "10 60 5060 sipserver.example.com."
+                    parts = record.data.split(None, 3)
+                    
+                    if len(parts) >= 4:
+                        priority = parts[0]
+                        weight = parts[1]
+                        port = parts[2]
+                        target = parts[3].rstrip('.')
+                    else:
+                        # Malformed SRV record, use raw data
+                        priority = weight = port = ''
+                        target = record.data.rstrip('.')
+                    
+                    srv_records.append({
+                        'service': service,
+                        'priority': priority,
+                        'weight': weight,
+                        'port': port,
+                        'target': target,
+                        'zone': zone.name,
+                        'ttl': record.ttl
+                    })
+        
+        # Sort by service name
+        srv_records.sort(key=lambda x: x['service'].lower())
+        
+        # Add SRV record data
+        for srv in srv_records:
+            ws.append([
+                srv['service'],
+                srv['priority'],
+                srv['weight'],
+                srv['port'],
+                srv['target'],
+                srv['zone'],
+                srv['ttl']
+            ])
+        
+        # Auto-adjust column widths
+        self.auto_adjust_columns(ws)
+    
+    def create_aaaa_records_sheet(self, wb: Workbook, zones: List[ZoneInfo], records_by_zone: dict) -> None:
+        """
+        Create consolidated AAAA (IPv6) records sheet
+        
+        Args:
+            wb: Workbook object
+            zones: List of ZoneInfo objects
+            records_by_zone: Dictionary mapping zone names to lists of DNSRecord objects
+        """
+        ws = wb.create_sheet('AAAA Records')
+        
+        # Headers
+        headers = ['Name', 'IPv6 Address', 'Zone', 'TTL']
+        ws.append(headers)
+        
+        # Apply header formatting
+        self.apply_formatting(ws, len(headers))
+        
+        # Collect all AAAA records
+        aaaa_records = []
+        
+        for zone in zones:
+            records = records_by_zone.get(zone.name, [])
+            
+            for record in records:
+                if record.record_type == 'AAAA':
+                    # Build FQDN for the name
+                    if record.name == '@':
+                        fqdn = zone.name
+                    else:
+                        fqdn = f"{record.name}.{zone.name}"
+                    
+                    # IPv6 address is the data
+                    ipv6_address = record.data
+                    
+                    aaaa_records.append({
+                        'name': fqdn,
+                        'ipv6': ipv6_address,
+                        'zone': zone.name,
+                        'ttl': record.ttl
+                    })
+        
+        # Sort by name
+        aaaa_records.sort(key=lambda x: x['name'].lower())
+        
+        # Add AAAA record data
+        for aaaa in aaaa_records:
+            ws.append([
+                aaaa['name'],
+                aaaa['ipv6'],
+                aaaa['zone'],
+                aaaa['ttl']
             ])
         
         # Auto-adjust column widths

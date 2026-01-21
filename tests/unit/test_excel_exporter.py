@@ -306,10 +306,13 @@ def test_workbook_with_multiple_zones_and_records(exporter):
     
     wb = load_workbook(filepath)
     
-    # Should have Zone List + PTR Records + 2 zone sheets
-    assert len(wb.sheetnames) == 4
+    # Should have Zone List + PTR Records + CNAME Records + SRV Records + AAAA Records + 2 zone sheets
+    assert len(wb.sheetnames) == 7
     assert 'Zone List' in wb.sheetnames
     assert 'PTR Records' in wb.sheetnames
+    assert 'CNAME Records' in wb.sheetnames
+    assert 'SRV Records' in wb.sheetnames
+    assert 'AAAA Records' in wb.sheetnames
     assert 'zone1.com' in wb.sheetnames
     assert 'zone2.com' in wb.sheetnames
     
