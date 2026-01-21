@@ -5,6 +5,57 @@ All notable changes to DNS-Gather will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0] - 2026-01-21
+
+### Added
+- **Consolidation Worksheets**: Added dedicated worksheets for specific DNS record types
+  - **PTR Records Sheet**: Consolidated view of all PTR records with IP addresses and FQDNs
+    - Columns: IP Address, FQDN, Zone, TTL
+    - Automatic IP address extraction from reverse zone names
+    - Sorted by IP address for easy lookup
+    - Supports both IPv4 and IPv6 reverse zones
+  - **CNAME Records Sheet**: Consolidated view of all CNAME records
+    - Columns: Name, Target, Zone, TTL
+    - Full FQDN construction for record names
+    - Sorted alphabetically by name
+  - **SRV Records Sheet**: Consolidated view of all SRV records
+    - Columns: Service, Priority, Weight, Port, Target, Zone, TTL
+    - Automatic parsing of SRV record data
+    - Sorted alphabetically by service name
+  - **AAAA Records Sheet**: Consolidated view of all IPv6 records
+    - Columns: Name, IPv6 Address, Zone, TTL
+    - Full FQDN construction for record names
+    - Sorted alphabetically by name
+
+### Changed
+- **Excel Export Structure**: Workbooks now include 5 consolidation sheets plus individual zone sheets
+  - Sheet order: Zone List, PTR Records, CNAME Records, SRV Records, AAAA Records, then zone sheets
+  - All consolidation sheets use consistent formatting and column auto-adjustment
+  - Empty consolidation sheets are still created (headers only) when no records of that type exist
+
+### Technical Details
+- **Version:** 1.0.0 (MAJOR release - significant new functionality)
+- **Build Date:** 2026-01-21
+- **New Methods:**
+  - `create_ptr_records_sheet()`: PTR record consolidation
+  - `create_cname_records_sheet()`: CNAME record consolidation
+  - `create_srv_records_sheet()`: SRV record consolidation
+  - `create_aaaa_records_sheet()`: AAAA record consolidation
+  - `extract_ip_from_ptr()`: IP address extraction from PTR zones
+  - `ip_sort_key()`: IP address sorting helper
+
+### Testing
+- All 21 Excel exporter tests passing
+- Added comprehensive tests for PTR record functionality
+- Updated tests to account for new worksheet structure
+- Verified consolidation sheets with real DNS data
+
+### Benefits
+- **Improved Usability**: Quick access to specific record types without searching through zone sheets
+- **Better Analysis**: Consolidated views make it easier to audit and analyze DNS records
+- **Enhanced Reporting**: Dedicated sheets for common record types improve report clarity
+- **Efficient Lookup**: Sorted data enables faster searching and cross-referencing
+
 ## [0.1.1] - 2026-01-17
 
 ### Added
@@ -191,5 +242,7 @@ This project uses the following version format: `MAJOR.MINOR.PATCH[LETTER]`
 
 ---
 
+[1.0.0]: https://github.com/MarkTegna/DNS-Gather/releases/tag/v1.0.0
+[0.1.1]: https://github.com/MarkTegna/DNS-Gather/releases/tag/v0.1.1
 [0.1.0]: https://github.com/MarkTegna/DNS-Gather/releases/tag/v0.1.0
 [0.0.1]: https://github.com/MarkTegna/DNS-Gather/releases/tag/v0.0.1
