@@ -51,6 +51,9 @@ class ExcelExporter:
         # Create zone list sheet
         self.create_zone_list_sheet(wb, zones)
         
+        # Create PTR records consolidation sheet
+        self.create_ptr_records_sheet(wb, zones, records_by_zone)
+        
         # Create individual zone sheets
         for zone in zones:
             records = records_by_zone.get(zone.name, [])
@@ -95,6 +98,142 @@ class ExcelExporter:
         
         # Auto-adjust column widths
         self.auto_adjust_columns(ws)
+    
+    def create_ptr_records_sheet(self, wb: Workbook, zones: List[ZoneInfo], records_by_zone: dict) -> None:
+        """
+        Create consolidated PTR records sheet with IP addresses and FQDNs
+        
+        Args:
+            wb: Workbook object
+            zones: List of ZoneInfo objects
+            records_by_zone: Dictionary mapping zone names to lists of DNSRecord objects
+        """
+        ws = wb.create_sheet('PTR Records', 1)
+        
+        # Headers
+        headers = ['IP Address', 'FQDN', 'Zone', 'TTL']
+        ws.append(headers)
+        
+        # Apply header formatting
+        self.apply_formatting(ws, len(headers))
+        
+        # Collect all PTR records
+        ptr_records = []
+        
+        for zone in zones:
+            records = records_by_zone.get(zone.name, [])
+            
+            # Check if this is a reverse zone (in-addr.arpa or ip6.arpa)
+            is_reverse_zone = zone.name.endswith('.in-addr.arpa') or zone.name.endswith('.ip6.arpa')
+            
+            for record in records:
+                if record.record_type == 'PTR':
+                    # Extract IP address from zone name and record name
+                    ip_address = self.extract_ip_from_ptr(zone.name, record.name)
+                    
+                    # FQDN is the PTR data (remove trailing dot)
+                    fqdn = record.data.rstrip('.')
+                    
+                    ptr_records.append({
+                        'ip': ip_address,
+                        'fqdn': fqdn,
+                        'zone': zone.name,
+                        'ttl': record.ttl
+                    })
+        
+        # Sort by IP address
+        ptr_records.sort(key=lambda x: self.ip_sort_key(x['ip']))
+        
+        # Add PTR record data
+        for ptr in ptr_records:
+            ws.append([
+                ptr['ip'],
+                ptr['fqdn'],
+                ptr['zone'],
+                ptr['ttl']
+            ])
+        
+        # Auto-adjust column widths
+        self.auto_adjust_columns(ws)
+    
+    def extract_ip_from_ptr(self, zone_name: str, record_name: str) -> str:
+        """
+        Extract IP address from PTR zone name and record name
+        
+        Args:
+            zone_name: Reverse zone name (e.g., "1.168.192.in-addr.arpa")
+            record_name: PTR record name (e.g., "10" or "@")
+        
+        Returns:
+            IP address string (e.g., "192.168.1.10")
+        """
+        try:
+            if zone_name.endswith('.in-addr.arpa'):
+                # IPv4 reverse zone
+                # Remove .in-addr.arpa suffix
+                zone_parts = zone_name.replace('.in-addr.arpa', '').split('.')
+                
+                # Reverse the octets (they're in reverse order in DNS)
+                zone_parts.reverse()
+                
+                # Handle record name
+                if record_name == '@':
+                    # @ means the zone itself - this shouldn't typically have a PTR
+                    # but if it does, use the zone as-is
+                    return '.'.join(zone_parts)
+                else:
+                    # Record name contains the remaining octets
+                    record_parts = record_name.split('.')
+                    # Combine zone parts with record parts
+                    all_parts = zone_parts + record_parts
+                    return '.'.join(all_parts)
+            
+            elif zone_name.endswith('.ip6.arpa'):
+                # IPv6 reverse zone
+                # This is more complex - for now, return the raw format
+                # Full IPv6 PTR reconstruction would require more logic
+                zone_parts = zone_name.replace('.ip6.arpa', '').split('.')
+                zone_parts.reverse()
+                
+                if record_name == '@':
+                    ipv6_hex = ''.join(zone_parts)
+                else:
+                    record_parts = record_name.split('.')
+                    record_parts.reverse()
+                    ipv6_hex = ''.join(record_parts + zone_parts)
+                
+                # Format as IPv6 (insert colons every 4 characters)
+                ipv6_formatted = ':'.join([ipv6_hex[i:i+4] for i in range(0, len(ipv6_hex), 4)])
+                return ipv6_formatted
+            
+            else:
+                # Not a reverse zone - return as-is
+                return f"{record_name}.{zone_name}"
+        
+        except Exception:
+            # If parsing fails, return a combined string
+            return f"{record_name}.{zone_name}"
+    
+    def ip_sort_key(self, ip_str: str) -> tuple:
+        """
+        Generate sort key for IP address (handles both IPv4 and IPv6)
+        
+        Args:
+            ip_str: IP address string
+        
+        Returns:
+            Tuple for sorting
+        """
+        try:
+            # Try to parse as IPv4
+            if '.' in ip_str and ':' not in ip_str:
+                parts = ip_str.split('.')
+                return tuple(int(p) if p.isdigit() else 0 for p in parts[:4])
+            else:
+                # IPv6 or other - sort alphabetically
+                return (ip_str,)
+        except Exception:
+            return (ip_str,)
     
     def create_zone_sheet(self, wb: Workbook, zone: ZoneInfo, records: List[DNSRecord]) -> None:
         """

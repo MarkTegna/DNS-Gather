@@ -306,9 +306,10 @@ def test_workbook_with_multiple_zones_and_records(exporter):
     
     wb = load_workbook(filepath)
     
-    # Should have Zone List + 2 zone sheets
-    assert len(wb.sheetnames) == 3
+    # Should have Zone List + PTR Records + 2 zone sheets
+    assert len(wb.sheetnames) == 4
     assert 'Zone List' in wb.sheetnames
+    assert 'PTR Records' in wb.sheetnames
     assert 'zone1.com' in wb.sheetnames
     assert 'zone2.com' in wb.sheetnames
     
@@ -319,5 +320,140 @@ def test_workbook_with_multiple_zones_and_records(exporter):
     # Check zone2 has 1 record
     ws2 = wb['zone2.com']
     assert ws2.max_row == 2  # header + 1 record
+    
+    wb.close()
+
+
+def test_ptr_records_sheet_creation(exporter, temp_output_dir):
+    """Test that PTR records sheet is created with correct data"""
+    # Create zones with PTR records
+    zones = [
+        ZoneInfo(
+            name='1.168.192.in-addr.arpa',
+            zone_type='Primary',
+            serial=1,
+            transfer_status='Success',
+            record_count=3,
+            error_message=''
+        ),
+        ZoneInfo(
+            name='example.com',
+            zone_type='Primary',
+            serial=1,
+            transfer_status='Success',
+            record_count=1,
+            error_message=''
+        )
+    ]
+    
+    # Create records with PTR records
+    records_by_zone = {
+        '1.168.192.in-addr.arpa': [
+            DNSRecord(name='10', record_type='PTR', ttl=300, data='server1.example.com.'),
+            DNSRecord(name='20', record_type='PTR', ttl=300, data='server2.example.com.'),
+            DNSRecord(name='30', record_type='PTR', ttl=300, data='server3.example.com.')
+        ],
+        'example.com': [
+            DNSRecord(name='www', record_type='A', ttl=300, data='192.168.1.10')
+        ]
+    }
+    
+    # Create workbook
+    filepath = exporter.create_workbook(zones, records_by_zone)
+    
+    # Load and verify
+    wb = load_workbook(filepath)
+    
+    # Check PTR Records sheet exists
+    assert 'PTR Records' in wb.sheetnames
+    
+    ws = wb['PTR Records']
+    
+    # Check headers
+    assert ws.cell(1, 1).value == 'IP Address'
+    assert ws.cell(1, 2).value == 'FQDN'
+    assert ws.cell(1, 3).value == 'Zone'
+    assert ws.cell(1, 4).value == 'TTL'
+    
+    # Check PTR record data
+    assert ws.cell(2, 1).value == '192.168.1.10'
+    assert ws.cell(2, 2).value == 'server1.example.com'
+    assert ws.cell(2, 3).value == '1.168.192.in-addr.arpa'
+    assert ws.cell(2, 4).value == 300
+    
+    assert ws.cell(3, 1).value == '192.168.1.20'
+    assert ws.cell(3, 2).value == 'server2.example.com'
+    
+    assert ws.cell(4, 1).value == '192.168.1.30'
+    assert ws.cell(4, 2).value == 'server3.example.com'
+    
+    wb.close()
+
+
+def test_extract_ip_from_ptr_ipv4(exporter):
+    """Test IP extraction from IPv4 PTR records"""
+    # Test standard PTR record
+    ip = exporter.extract_ip_from_ptr('1.168.192.in-addr.arpa', '10')
+    assert ip == '192.168.1.10'
+    
+    # Test another octet
+    ip = exporter.extract_ip_from_ptr('1.168.192.in-addr.arpa', '255')
+    assert ip == '192.168.1.255'
+    
+    # Test @ record
+    ip = exporter.extract_ip_from_ptr('1.168.192.in-addr.arpa', '@')
+    assert ip == '192.168.1'
+
+
+def test_extract_ip_from_ptr_multi_octet(exporter):
+    """Test IP extraction from PTR records with multiple octets in record name"""
+    # Test /16 zone with two octets in record name
+    # Zone: 168.192.in-addr.arpa (reversed: 192.168)
+    # Record: 10.1 (parts: 10, 1)
+    # Result: 192.168 + 10 + 1 = 192.168.10.1
+    ip = exporter.extract_ip_from_ptr('168.192.in-addr.arpa', '10.1')
+    assert ip == '192.168.10.1'
+
+
+def test_ip_sort_key(exporter):
+    """Test IP address sorting"""
+    ips = ['192.168.1.100', '192.168.1.10', '192.168.1.1', '10.0.0.1']
+    sorted_ips = sorted(ips, key=exporter.ip_sort_key)
+    
+    assert sorted_ips == ['10.0.0.1', '192.168.1.1', '192.168.1.10', '192.168.1.100']
+
+
+def test_ptr_records_sheet_empty(exporter, temp_output_dir):
+    """Test PTR records sheet with no PTR records"""
+    zones = [
+        ZoneInfo(
+            name='example.com',
+            zone_type='Primary',
+            serial=1,
+            transfer_status='Success',
+            record_count=1,
+            error_message=''
+        )
+    ]
+    
+    records_by_zone = {
+        'example.com': [
+            DNSRecord(name='www', record_type='A', ttl=300, data='192.168.1.10')
+        ]
+    }
+    
+    # Create workbook
+    filepath = exporter.create_workbook(zones, records_by_zone)
+    
+    # Load and verify
+    wb = load_workbook(filepath)
+    
+    # Check PTR Records sheet exists but is empty (only headers)
+    assert 'PTR Records' in wb.sheetnames
+    ws = wb['PTR Records']
+    
+    # Should have headers but no data rows
+    assert ws.cell(1, 1).value == 'IP Address'
+    assert ws.max_row == 1  # Only header row
     
     wb.close()
