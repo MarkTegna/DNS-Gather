@@ -14,7 +14,7 @@ class ZoneInfo:
     transfer_status: str  # "Success", "Denied", "Failed", "Pending"
     record_count: int
     error_message: str
-    
+
     def to_dict(self) -> dict:
         """Convert to dictionary for Excel export"""
         return {
@@ -33,7 +33,7 @@ class DNSRecord:
     record_type: str  # A, AAAA, CNAME, MX, NS, SOA, TXT, PTR, SRV, etc.
     ttl: int
     data: str
-    
+
     def to_dict(self) -> dict:
         """Convert to dictionary for Excel export"""
         return {
@@ -54,7 +54,7 @@ class ApplicationState:
     errors: List[str]
     start_time: datetime
     end_time: datetime
-    
+
     def get_summary(self) -> dict:
         """Generate summary statistics"""
         duration = (self.end_time - self.start_time).total_seconds()
